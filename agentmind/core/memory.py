@@ -31,12 +31,13 @@ class Memory:
         >>> memories = memory.recall("agent-1", "programming preferences")
     """
     
-    def __init__(self, config: Optional[MemoryConfig] = None, **kwargs):
+    def __init__(self, config: Optional[MemoryConfig] = None, *, embeddings=None, **kwargs):
         """
         Initialize memory.
         
         Args:
             config: Memory configuration
+            embeddings: Optional provider exposing encode(text) -> list[float].
             **kwargs: Configuration parameters (override config)
         """
         if config is None:
@@ -48,7 +49,9 @@ class Memory:
         
         self.config = config
         self.store = MemoryStore(config)
-        self.embeddings = EmbeddingModel(config.embedding_model)
+        self.embeddings = (
+            embeddings if embeddings is not None else EmbeddingModel(config.embedding_model)
+        )
     
     def remember(
         self,

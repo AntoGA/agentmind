@@ -1,4 +1,4 @@
-name: Offline memory tests
+name: Package and offline memory tests
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -14,11 +14,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install numpy pydantic tenacity pytest
-      - run: python -m compileall -q agentmind tests
-      - run: PYTHONPATH=. python -m pytest -q tests --junitxml=test-results.xml
+      - run: python -m pip install build twine
+      # build creates the wheel from the sdist, exercising both artifacts.
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m venv /tmp/agentmind-installed
+      - run: /tmp/agentmind-installed/bin/python -m pip install dist/*.whl pytest
+      - name: Test installed wheel outside checkout
+        run: |
+          mkdir -p /tmp/agentmind-tests
+          cp -R tests /tmp/agentmind-tests/tests
+          cd /tmp/agentmind-tests
+          /tmp/agentmind-installed/bin/python -I -m pytest -q tests --junitxml="$GITHUB_WORKSPACE/test-results.xml"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tests-python-${{ matrix.python }}
-          path: test-results.xml
+          name: package-python-${{ matrix.python }}
+          path: |
+            dist/*
+            test-results.xml

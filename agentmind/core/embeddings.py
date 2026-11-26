@@ -29,7 +29,7 @@ class EmbeddingModel:
             self.client = OpenAI()
             self.provider = "openai"
         except ImportError:
-            raise ImportError("OpenAI package not installed. Run: pip install openai")
+            raise ImportError("OpenAI package not installed. Run: pip install agentmind[openai]")
     
     def _init_sentence_transformers(self):
         """Initialize Sentence Transformers"""
@@ -38,7 +38,7 @@ class EmbeddingModel:
             self.model = SentenceTransformer(self.model_name)
             self.provider = "sentence_transformers"
         except ImportError:
-            raise ImportError("Sentence Transformers not installed. Run: pip install sentence-transformers")
+            raise ImportError("Sentence Transformers not installed. Run: pip install agentmind[sentence-transformers]")
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     def encode(self, text: str) -> List[float]:
