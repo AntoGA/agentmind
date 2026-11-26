@@ -7,11 +7,12 @@ import sqlite3
 import json
 import uuid
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
 import numpy as np
 
-from agentmind.core.memory import MemoryConfig
+if TYPE_CHECKING:
+    from agentmind.core.memory import MemoryConfig
 
 
 class MemoryRecord(BaseModel):
@@ -30,7 +31,7 @@ class MemoryRecord(BaseModel):
 class MemoryStore:
     """Memory storage"""
     
-    def __init__(self, config: MemoryConfig):
+    def __init__(self, config: "MemoryConfig"):
         self.config = config
         self.storage_type = config.storage
         
@@ -127,6 +128,8 @@ class MemoryStore:
         min_score: float
     ) -> List[MemoryRecord]:
         """Search in SQLite"""
+        if type(limit) is not int or limit < 1:
+            raise ValueError("limit must be a positive integer")
         # Get all agent memories
         query = "SELECT * FROM memories WHERE agent_id = ?"
         params = [agent_id]
@@ -136,8 +139,7 @@ class MemoryStore:
             query += " AND timestamp >= ? AND timestamp <= ?"
             params.extend([start_time.isoformat(), end_time.isoformat()])
         
-        query += " ORDER BY timestamp DESC LIMIT ?"
-        params.append(limit * 10)
+        query += " ORDER BY timestamp DESC"
         
         cursor = self.conn.execute(query, params)
         rows = cursor.fetchall()
@@ -161,12 +163,16 @@ class MemoryStore:
             memories.append(record)
         
         # If query_embedding exists, compute similarity
-        if query_embedding:
-            query_vec = np.array(query_embedding)
+        if query_embedding is not None:
+            query_vec = np.asarray(query_embedding, dtype=float)
+            if query_vec.ndim != 1 or not len(query_vec) or not np.isfinite(query_vec).all() or not np.linalg.norm(query_vec):
+                raise ValueError("query_embedding must be a finite nonzero vector")
             
             for mem in memories:
                 mem_vec = np.array(mem.embedding)
                 # Cosine similarity
+                if mem_vec.shape != query_vec.shape or not np.isfinite(mem_vec).all() or not np.linalg.norm(mem_vec):
+                    raise ValueError("stored embedding is incompatible with query")
                 score = np.dot(query_vec, mem_vec) / (np.linalg.norm(query_vec) * np.linalg.norm(mem_vec))
                 mem.score = float(score)
             
@@ -174,7 +180,7 @@ class MemoryStore:
             memories.sort(key=lambda m: m.score if m.score else 0, reverse=True)
             
             # Filter by min_score
-            memories = [m for m in memories if m.score and m.score >= min_score]
+            memories = [m for m in memories if m.score is not None and m.score >= min_score]
         
         # Apply metadata filters
         if filters:
@@ -213,23 +219,42 @@ class MemoryStore:
         older_than: Optional[datetime]
     ) -> int:
         """Delete from SQLite"""
-        query = "DELETE FROM memories WHERE agent_id = ?"
+        if memory_ids is not None and not memory_ids:
+            return 0
+        # Resolve metadata predicates before deletion, retaining agent/id/time scope.
+        query = "SELECT id, metadata FROM memories WHERE agent_id = ?"
         params = [agent_id]
-        
-        if memory_ids:
+        if memory_ids is not None:
             placeholders = ",".join(["?"] * len(memory_ids))
             query += f" AND id IN ({placeholders})"
             params.extend(memory_ids)
-        
-        if older_than:
+        if older_than is not None:
             query += " AND timestamp < ?"
             params.append(older_than.isoformat())
-        
-        cursor = self.conn.execute(query, params)
-        self.conn.commit()
-        
-        return cursor.rowcount
-    
+        with self.conn:
+            rows = self.conn.execute(query, params).fetchall()
+            ids = []
+            for row in rows:
+                metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+                if filters and any(k not in metadata or metadata[k] != v for k, v in filters.items()):
+                    continue
+                ids.append((row["id"], agent_id))
+            self.conn.executemany("DELETE FROM memories WHERE id = ? AND agent_id = ?", ids)
+        return len(ids)
+
+    def prune(self, agent_id: str, max_memories: int) -> int:
+        """Keep the highest-importance/newest records across the full agent corpus."""
+        if type(max_memories) is not int or max_memories < 1:
+            raise ValueError("max_memories must be positive")
+        with self.conn:
+            rows = self.conn.execute(
+                "SELECT id FROM memories WHERE agent_id=? ORDER BY importance DESC, timestamp DESC, id LIMIT -1 OFFSET ?",
+                (agent_id, max_memories),
+            ).fetchall()
+            self.conn.executemany("DELETE FROM memories WHERE id=? AND agent_id=?",
+                                  [(row['id'], agent_id) for row in rows])
+        return len(rows)
+
     def get_stats(self, agent_id: str) -> Dict[str, Any]:
         """Get statistics"""
         if self.storage_type == "sqlite":

@@ -1,10 +1,17 @@
 # 🧠 AgentMind — AI Agent Memory Layer
 
-[![PyPI version](https://badge.fury.io/py/agentmind.svg)](https://badge.fury.io/py/agentmind)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Persistent memory for AI agents that actually works.**
+**Research prototype: SQLite-backed agent memory.**
+
+> Validation scope: SQLite with deterministic fake embeddings in offline tests.
+> PostgreSQL, Redis and ChromaDB raise `NotImplementedError`; their examples below
+> describe planned backends. LangChain is experimental; AutoGen/CrewAI integrations
+> are not implemented in this repository. No CLI implementation is included.
+> This checkout is not evidence that the identically named PyPI distribution is
+> maintained or verified by this repository; use a reviewed source checkout.
+> Test with `python -m pytest -q tests` after installing `.[dev]`. Tests never invoke an external embedding API.
 
 AgentMind solves a critical problem with AI agents: they forget everything between sessions. This library provides long-term memory with semantic search, temporal context, and integration with popular frameworks.
 
@@ -16,14 +23,35 @@ AgentMind solves a critical problem with AI agents: they forget everything betwe
 - 👤 **User preferences** — personalize for each user
 - 🔗 **Integrations** — LangChain, AutoGen, CrewAI, OpenAI
 - 🚀 **Simple API** — 3 lines of code to add memory
-- 💾 **Flexible storage** — SQLite, PostgreSQL, Redis, ChromaDB
+- 💾 **Storage** — SQLite implemented; other backends planned
 
 ## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-pip install agentmind
+# From a reviewed checkout of this repository (Python 3.10+):
+python -m pip install ".[openai]"
+# Set OPENAI_API_KEY before using the default embedding model.
+# Alternatively: python -m pip install ".[sentence-transformers]"
+# Core only (for a custom embedding provider): python -m pip install .
+```
+
+The base package installs only NumPy, Pydantic and Tenacity. Provider extras are
+optional; the default `Memory()` needs the `openai` extra and credentials.
+For offline use, pass `Memory(embeddings=provider)` where `provider.encode(text)`
+returns finite, nonempty vectors of a consistent dimension. This does not evaluate
+embedding quality. Sentence Transformers may download a model on first use.
+Unimplemented storage backends have no installation extras. LangChain remains an
+experimental source integration and is outside the tested package contract.
+Python 3.10 is now the minimum, matching the CI matrix's oldest tested version.
+
+Build and validate a local distribution (no publication):
+
+```bash
+python -m pip install ".[dev]"
+python -m build
+python -m twine check dist/*
 ```
 
 ### Basic Usage
@@ -32,7 +60,7 @@ pip install agentmind
 from agentmind import Memory
 
 # Initialize memory
-memory = Memory(storage="sqlite", path="agent_memory.db")
+memory = Memory(storage="sqlite", db_path="agent_memory.db")
 
 # Remember
 memory.remember(
@@ -168,7 +196,7 @@ recent = memory.recall(
 memory = Memory(storage="sqlite", path="memory.db")
 ```
 
-### PostgreSQL (for production)
+### PostgreSQL (planned, not implemented)
 
 ```python
 memory = Memory(
@@ -177,7 +205,7 @@ memory = Memory(
 )
 ```
 
-### Redis (for fast access)
+### Redis (planned, not implemented)
 
 ```python
 memory = Memory(
