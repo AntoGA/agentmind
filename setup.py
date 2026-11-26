@@ -51,9 +51,4 @@ setup(
             "mypy>=1.5.0",
         ],
     },
-    entry_points={
-        "console_scripts": [
-            "agentmind=agentmind.cli:main",
-        ],
-    },
 )

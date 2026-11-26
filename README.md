@@ -4,7 +4,16 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Persistent memory for AI agents that actually works.**
+**Research prototype: SQLite-backed agent memory.**
+
+> Validation scope: SQLite with deterministic fake embeddings in offline tests.
+> PostgreSQL, Redis and ChromaDB raise `NotImplementedError`; their examples below
+> describe planned backends. LangChain is experimental; AutoGen/CrewAI integrations
+> are not implemented in this repository. No CLI implementation is included.
+> This checkout is not evidence that the identically named PyPI distribution is
+> maintained or verified by this repository; use a reviewed source checkout.
+> Test with `PYTHONPATH=. python -m pytest -q tests` after installing numpy,
+> pydantic, tenacity and pytest. Tests never invoke an external embedding API.
 
 AgentMind solves a critical problem with AI agents: they forget everything between sessions. This library provides long-term memory with semantic search, temporal context, and integration with popular frameworks.
 
@@ -16,7 +25,7 @@ AgentMind solves a critical problem with AI agents: they forget everything betwe
 - 👤 **User preferences** — personalize for each user
 - 🔗 **Integrations** — LangChain, AutoGen, CrewAI, OpenAI
 - 🚀 **Simple API** — 3 lines of code to add memory
-- 💾 **Flexible storage** — SQLite, PostgreSQL, Redis, ChromaDB
+- 💾 **Storage** — SQLite implemented; other backends planned
 
 ## 🚀 Quick Start
 
@@ -168,7 +177,7 @@ recent = memory.recall(
 memory = Memory(storage="sqlite", path="memory.db")
 ```
 
-### PostgreSQL (for production)
+### PostgreSQL (planned, not implemented)
 
 ```python
 memory = Memory(
@@ -177,7 +186,7 @@ memory = Memory(
 )
 ```
 
-### Redis (for fast access)
+### Redis (planned, not implemented)
 
 ```python
 memory = Memory(

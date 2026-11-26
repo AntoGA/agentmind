@@ -196,21 +196,4 @@ class Memory:
     
     def _cleanup_if_needed(self, agent_id: str):
         """Clean up old memories if limit exceeded"""
-        stats = self.get_stats(agent_id)
-        
-        if stats["total_memories"] > self.config.max_memories:
-            # Delete oldest and least important
-            excess = stats["total_memories"] - self.config.max_memories
-            
-            # Get old memories
-            old_memories = self.recall(
-                agent_id=agent_id,
-                limit=excess * 2
-            )
-            
-            # Sort by importance and time
-            old_memories.sort(key=lambda m: (m.importance, m.timestamp))
-            
-            # Delete excess
-            to_delete = [m.id for m in old_memories[:excess]]
-            self.forget(agent_id=agent_id, memory_ids=to_delete)
+        self.store.prune(agent_id, self.config.max_memories)

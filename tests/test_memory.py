@@ -113,8 +113,8 @@ def test_get_stats(memory):
     assert "newest_memory" in stats
 
 
-def test_semantic_search(memory):
-    """Test semantic search"""
+def test_ranking_with_fake_embeddings(memory):
+    """Test storage ranking with deterministic fake embeddings, not semantic model quality."""
     # Save memories
     memory.remember("agent-1", "I love playing basketball and soccer")
     memory.remember("agent-1", "Python is my favorite programming language")
